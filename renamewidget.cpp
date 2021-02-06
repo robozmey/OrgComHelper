@@ -7,12 +7,32 @@ RenameWidget::RenameWidget(QWidget *parent) :
 {
     ui->setupUi(this);
     ui->radioButton_without->setChecked(true);
-
+    ui->lineEdit_suffix->setEnabled(false);
 }
 
 RenameWidget::~RenameWidget()
 {
     delete ui;
+}
+
+void RenameWidget::on_radioButton_1Typ_clicked()
+{
+    ui->lineEdit_suffix->setEnabled(false);
+}
+
+void RenameWidget::on_radioButton_2Typ_clicked()
+{
+    ui->lineEdit_suffix->setEnabled(false);
+}
+
+void RenameWidget::on_radioButton_without_clicked()
+{
+    ui->lineEdit_suffix->setEnabled(false);
+}
+
+void RenameWidget::on_radioButton_other_clicked()
+{
+    ui->lineEdit_suffix->setEnabled(true);
 }
 
 void RenameWidget::on_pushButton_upload_clicked()

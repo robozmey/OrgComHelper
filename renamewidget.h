@@ -30,6 +30,10 @@ signals:
     void mainWindow();
 
 private slots:
+    void on_radioButton_1Typ_clicked();
+    void on_radioButton_2Typ_clicked();
+    void on_radioButton_without_clicked();
+    void on_radioButton_other_clicked();
     void on_pushButton_upload_clicked();
     void on_pushButton_rename_clicked();
     void on_pushButton_protocol_clicked();
