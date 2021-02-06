@@ -7,6 +7,7 @@ RenameWidget::RenameWidget(QWidget *parent) :
 {
     ui->setupUi(this);
     ui->radioButton_without->setChecked(true);
+
 }
 
 RenameWidget::~RenameWidget()

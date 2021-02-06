@@ -34,20 +34,30 @@ Smtp::Smtp( const QString &user, const QString &pass, const QString &host, int p
 
 }
 
+QString encode(QString encodedString)
+{
+    return QString::fromUtf8(encodedString.toLocal8Bit());
+    QTextCodec *codec = QTextCodec::codecForName( "UTF-8" );
+    return codec->toUnicode(encodedString.toLocal8Bit());
+}
+
 void Smtp::sendMail(const QString &from, const QString &to, const QString &subject, const QString &body, QStringList files)
 {
-    message = "To: " + to + "\n";    
-    message.append("From: " + from + "\n");
-    message.append("Subject: " + subject + "\n");
+
+    QString charset = "";
+
+    message = QString::fromLatin1( "To: " ) + to + "\n";
+    message.append( QString::fromLatin1( "From: " ) + from + "\n");
+    message.append("Subject: " + encode(subject) + "\n");
 
     //Let's intitiate multipart MIME with cutting boundary "frontier"
     message.append("MIME-Version: 1.0\n");
-    message.append("Content-Type: multipart/mixed; boundary=frontier\n\n");
+    message.append("Content-Type: multipart/mixed; " + charset + "boundary=frontier\n\n");
 
 
 
     message.append( "--frontier\n" );
-    message.append( "Content-Type: text/html\n\n" );  //Uncomment this for HTML formating, coment the line below
+    message.append( "Content-Type: text/html; " + charset + "\n\n" );  //Uncomment this for HTML formating, coment the line below
     //message.append( "Content-Type: text/plain\n\n" );
     message.append(body);
     message.append("\n\n");
@@ -68,7 +78,7 @@ void Smtp::sendMail(const QString &from, const QString &to, const QString &subje
                 }
                 QByteArray bytes = file.readAll();
                 message.append( "--frontier\n" );
-                message.append( "Content-Type: application/octet-stream\nContent-Disposition: attachment; filename="+ QFileInfo(file.fileName()).fileName() +";\nContent-Transfer-Encoding: base64\n\n" );
+                message.append( "Content-Type: application/octet-stream\nContent-Disposition: attachment; " + charset + "filename="+ QFileInfo(file.fileName()).fileName() +";\nContent-Transfer-Encoding: base64\n\n" );
                 message.append(bytes.toBase64());
                 message.append("\n");
             }
@@ -93,7 +103,6 @@ void Smtp::sendMail(const QString &from, const QString &to, const QString &subje
      }
 
     t = new QTextStream( socket );
-
 
 
 }

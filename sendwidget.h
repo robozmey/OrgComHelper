@@ -1,6 +1,7 @@
 #ifndef SENDWIDGET_H
 #define SENDWIDGET_H
 
+#include <QtCore>
 #include <QWidget>
 #include <QPushButton>
 #include <QFileDialog>
@@ -11,9 +12,11 @@
 #include <QFile>
 #include <QErrorMessage>
 #include <QProgressDialog>
+#include <QThread>
 
-#include "smtp.h"
+//#include "smtp.h"
 #include "util.h"
+#include "src/SmtpMime"
 
 namespace Ui {
     class SendWidget;

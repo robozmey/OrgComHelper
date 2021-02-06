@@ -63,6 +63,7 @@ void SendWidget::on_pushButton_emailKey_clicked()
 void SendWidget::showErrorMessage(QString text)
 {
     QMessageBox errorMessage(this);
+    qInfo(text.toLocal8Bit().data());
     errorMessage.setInformativeText(text);
     errorMessage.setText("Ошибка!");
     errorMessage.exec();
@@ -179,6 +180,7 @@ void SendWidget::on_pushButton_startSend_clicked()
     if(file_emailBody.open(QIODevice::ReadOnly))
     {
         QTextStream stream_emailBody(&file_emailBody);
+
         emailBodyText = stream_emailBody.readAll();
     }
     else
@@ -198,12 +200,14 @@ void SendWidget::on_pushButton_startSend_clicked()
     }
     QVector<Participant> participant_email_list;
     QFile file_emailBase(path_emailBase);
+    QString tmp = "";
     if(file_emailBase.open(QIODevice::ReadOnly))
     {
         QTextStream stream_emailBase(&file_emailBase);
         while(!stream_emailBase.atEnd())
         {
-            QString line = remove_yo(stream_emailBase.readLine());
+            QString line = remove_yo(QString::fromUtf8(stream_emailBase.readLine().toLocal8Bit()));
+            tmp += line + "\n";
             QStringList splited_line = line.split(QRegExp("[ \t]"),QString::SkipEmptyParts);
             if(splited_line.length() < 3)
             {
@@ -278,7 +282,7 @@ void SendWidget::on_pushButton_startSend_clicked()
             if(splited_fio[0] == participant_with_email.lastName && splited_fio[1] == participant_with_email.firstName)
             {
                 emails_list.insert(participant_with_email.email);
-                qInfo("Email Sending to %s", participant_with_email.email.toLocal8Bit().data());
+                qInfo("Email will send to %s", participant_with_email.email.toLocal8Bit().data());
             }
         }
         emails_byPaticipant_list.append(emails_list.toList());
@@ -299,19 +303,83 @@ void SendWidget::on_pushButton_startSend_clicked()
 
         for(auto email: emails_byPaticipant_list[participant_index])
         {
+
             qInfo("Sending email to %s", email.toLocal8Bit().data());
+
+            SmtpClient smtp(email_server, port_server, SmtpClient::SslConnection);
+
+            smtp.setUser(email_login);
+            smtp.setPassword(email_password);
+
+            // Create a MimeMessage
+
+            MimeMessage message;
+
+            EmailAddress sender(email_login, email_login);
+            message.setSender(&sender);
+
+            EmailAddress to(email, email);
+            message.addRecipient(&to);
+
+            message.setSubject(subject);
+
+            // Add some text
+            MimeHtml html;
+            html.setHtml(emailBodyText.toLocal8Bit());
+            message.addPart(&html);
+
+
+
+
+            for(auto filename: attachments_list + personalAttrachments_byPaticipant_list[participant_index])
+            {
+                message.addPart(new MimeAttachment(new QFile(filename)));
+            } //*/
+
+            // Now we create the attachment object
+
+
+            if (!smtp.connectToHost()) {
+                showErrorMessage("Failed to connect to host!");
+                return;
+            }
+
+            qInfo("Succesfully connected to smtp server");
+
+            if (!smtp.login()) {
+                showErrorMessage("Failed to login!");
+                return;
+            }
+
+            qInfo("Succesfully logged in to smtp server");
+
+            if (!smtp.sendMail(message)) {
+               // showErrorMessage("Failed to send mail!");
+               // return;
+              // QThread::msleep(100);
+            }
+
+            qInfo("Succesfully sended email");
+
+            smtp.quit();
+
+
+
+            /*
             Smtp* smtp = new Smtp(email_login, email_password, email_server, port_server);
             connect(smtp, SIGNAL(status(QString)), this, SLOT(mailSent(QString)));
             QStringList files = attachments_list + personalAttrachments_byPaticipant_list[participant_index];
             smtp->sendMail(email_login, email, subject, emailBodyText, files );
-
+            while(smtp->state != 0){
+                qInfo("%d", smtp->state);
+                QThread::msleep(1000);
+            }
+            //*/
         }
 
     }
     progressDialog.setValue(participant_list.length());
     qInfo("All emails sended successfuly");
-
-    ui->lineEdit_protocol->setText(subject);
 }
 
 /*

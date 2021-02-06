@@ -3,7 +3,7 @@ QT       += core gui widgets network
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
 CONFIG += c++11
-CONFIG += static
+#CONFIG += static
 
 # You can make your code fail to compile if it uses deprecated APIs.
 # In order to do so, uncomment the following line.
@@ -23,7 +23,6 @@ HEADERS += \
     renamewidget.h \
     sendwidget.h \
     smtp.h \
-    smtp/SmtpMime \
     util.h
 
 
@@ -33,11 +32,20 @@ FORMS += \
     renamewidget.ui \
     sendwidget.ui
 
-INCLUDEPATH += C:/Program Files/OpenSSL-Win64/include
+#INCLUDEPATH += C:/Program Files/OpenSSL-Win64/include
 
-INCLUDEPATH += C:/Program Files (x86)/OpenSSL-Win32/include
+#INCLUDEPATH += C:/Program Files (x86)/OpenSSL-Win32/include
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin
 else: unix:!android: target.path = /opt/$${TARGET}/bin
 !isEmpty(target.path): INSTALLS += target
+
+SMTP_LIBRARY_LOCATION = C:/Users/Mymyr/Downloads/build-SMTPEmail-Desktop_Qt_5_15_2_MinGW_64_bit-Release
+
+win32:CONFIG(release, debug|release): LIBS += -L$$SMTP_LIBRARY_LOCATION/release/ -lSMTPEmail
+else:win32:CONFIG(debug, debug|release): LIBS += -L$$SMTP_LIBRARY_LOCATION/debug/ -lSMTPEmail
+else:unix: LIBS += -L$$SMTP_LIBRARY_LOCATION -lSMTPEmail
+
+INCLUDEPATH += $$SMTP_LIBRARY_LOCATION
+DEPENDPATH += $$SMTP_LIBRARY_LOCATION

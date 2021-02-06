@@ -22,6 +22,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #include <QByteArray>
 #include <QFile>
 #include <QFileInfo>
+#include <QTextCodec>
 
 
 
@@ -62,6 +63,8 @@ private:
     QString host;
     int port;
     enum states{Tls, HandShake ,Auth,User,Pass,Rcpt,Mail,Data,Init,Body,Quit,Close};
+
+public:
     int state;
 
 };
