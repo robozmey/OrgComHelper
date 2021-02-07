@@ -93,6 +93,72 @@ QString SendWidget::get_subject(bool &isNotOK)
     return subject;
 }
 
+
+SmtpInfo SendWidget::get_smtpInfo(bool &isNotOK)
+{
+    QString path_emailKey = ui->lineEdit_emailKey->text();
+    if(!QFile(path_emailKey).exists())
+    {
+        showErrorMessage("Файл с ключами от почты указан неверно!");
+        isNotOK = true;
+        return SmtpInfo();
+    }
+    QFile File_emailKey(path_emailKey);
+    QString email_server;
+    int port_server;
+    QString email_login;
+    QString email_password;
+    if (File_emailKey.open(QIODevice::ReadOnly))
+    {
+       QTextStream in(&File_emailKey);
+       if(in.atEnd()){
+           showErrorMessage("Формат файла с ключем неверен, строк 0, а не 4!");
+           isNotOK = true;
+           return SmtpInfo();
+       }
+       email_server = in.readLine();
+       if(in.atEnd()){
+           showErrorMessage("Формат файла с ключем неверен, строк 1, а не 4!");
+           isNotOK = true;
+           return SmtpInfo();
+       }
+       bool ok;
+       port_server = in.readLine().toInt(&ok);
+       if(in.atEnd()){
+           showErrorMessage("Формат файла с ключем неверен, строк 2, а не 4!");
+           isNotOK = true;
+           return SmtpInfo();
+       }
+       if(!ok){
+           showErrorMessage("Формат файла с ключем неверен, порт должен являться числом!");
+           isNotOK = true;
+           return SmtpInfo();
+       }
+       email_login = in.readLine();
+       if(in.atEnd()){
+           showErrorMessage("Формат файла с ключем неверен, строк 3, а не 4!");
+           isNotOK = true;
+           return SmtpInfo();
+       }
+       email_password = in.readLine();
+       File_emailKey.close();
+    }
+    else
+    {
+        showErrorMessage("Ошибка при чтении файла с ключами от почты!");
+        isNotOK = true;
+        return SmtpInfo();
+    }
+    qInfo("Email key getted successfuly:");
+    qInfo("Server: %s", email_server.toLocal8Bit().data());
+    qInfo("Port: %d", port_server);
+    qInfo("Login: %s", email_login.toLocal8Bit().data());
+    qInfo("Password: %s", email_password.toLocal8Bit().data());
+
+    return SmtpInfo(email_server, port_server, email_login, email_password);
+}
+
+
 QStringList SendWidget::get_attachments(bool &isNotOK)
 {
     QString path_attachmentsDir = ui->lineEdit_attachments->text();
@@ -271,90 +337,8 @@ std::tuple<QVector<Participant>, QVector<QStringList>, QVector<QStringList>> Sen
     return std::make_tuple(participant_list, personalAttrachments_byPaticipant_list, emails_byPaticipant_list);
 }
 
-void SendWidget::on_pushButton_startSend_clicked()
+void SendWidget::send_emails(QVector<Participant> participant_list, QVector<QStringList> emails_byPaticipant_list, QStringList attachments_list, QVector<QStringList> personalAttrachments_byPaticipant_list, SmtpInfo smtpInfo, QString subject, QString emailBodyText)
 {
-    bool isNotOK = false;
-
-    QString subject = get_subject(isNotOK);
-    if(isNotOK) return;
-
-    ///////////////////////////////////////////////////////////////////////
-    QStringList attachments_list = get_attachments(isNotOK);
-    if(isNotOK) return;
-
-    ///////////////////////////////////////////////////////////////////////
-    QFileInfoList personalAttachments_list = get_personalAtteachments(isNotOK);
-    if(isNotOK) return;
-
-    ///////////////////////////////////////////////////////////////////////
-    QString path_emailKey = ui->lineEdit_emailKey->text();
-    if(!QFile(path_emailKey).exists())
-    {
-        showErrorMessage("Файл с ключами от почты указан неверно!");
-        return;
-    }
-    QFile File_emailKey(path_emailKey);
-    QString email_server;
-    int port_server;
-    QString email_login;
-    QString email_password;
-    if (File_emailKey.open(QIODevice::ReadOnly))
-    {
-       QTextStream in(&File_emailKey);
-       if(in.atEnd()){
-           showErrorMessage("Формат файла с ключем неверен, строк 0, а не 4!");
-           return;
-       }
-       email_server = in.readLine();
-       if(in.atEnd()){
-           showErrorMessage("Формат файла с ключем неверен, строк 1, а не 4!");
-           return;
-       }
-       bool ok;
-       port_server = in.readLine().toInt(&ok);
-       if(in.atEnd()){
-           showErrorMessage("Формат файла с ключем неверен, строк 2, а не 4!");
-           return;
-       }
-       if(!ok){
-           showErrorMessage("Формат файла с ключем неверен, порт должен являться числом!");
-           return;
-       }
-       email_login = in.readLine();
-       if(in.atEnd()){
-           showErrorMessage("Формат файла с ключем неверен, строк 3, а не 4!");
-           return;
-       }
-       email_password = in.readLine();
-       File_emailKey.close();
-    }
-    else
-    {
-        showErrorMessage("Ошибка при чтении файла с ключами от почты!");
-        return;
-    }
-    qInfo("Email key getted successfuly:");
-    qInfo("Server: %s", email_server.toLocal8Bit().data());
-    qInfo("Port: %d", port_server);
-    qInfo("Login: %s", email_login.toLocal8Bit().data());
-    qInfo("Password: %s", email_password.toLocal8Bit().data());
-
-    ///////////////////////////////////////////////////////////////////////
-    QString emailBodyText = get_emailBodyText(isNotOK);
-
-    ///////////////////////////////////////////////////////////////////////
-    QVector<Participant> participant_email_list = get_participant_email_list(isNotOK);
-
-    ///////////////////////////////////////////////////////////////////////
-    QStringList participant_text_splited = get_participant_text_splited(isNotOK);
-
-    ///////////////////////////////////////////////////////////////////////
-    QVector<Participant> participant_list;
-    QVector<QStringList> personalAttrachments_byPaticipant_list;
-    QVector<QStringList> emails_byPaticipant_list;
-    std::tie(participant_list, personalAttrachments_byPaticipant_list, emails_byPaticipant_list) = get_mergedInfoToSend(participant_text_splited, personalAttachments_list, participant_email_list, isNotOK);
-
-    ///////////////////////////////////////////////////////////////////////
     QProgressDialog* progressDialog = new QProgressDialog(this);
     progressDialog->setLabelText("Отправка");
     progressDialog->setMinimum(0);
@@ -371,16 +355,16 @@ void SendWidget::on_pushButton_startSend_clicked()
 
             qInfo("Sending email to %s", email.toLocal8Bit().data());
 
-            SmtpClient smtp(email_server, port_server, SmtpClient::SslConnection);
+            SmtpClient smtp(smtpInfo.server, smtpInfo.port, SmtpClient::SslConnection);
 
-            smtp.setUser(email_login);
-            smtp.setPassword(email_password);
+            smtp.setUser(smtpInfo.login);
+            smtp.setPassword(smtpInfo.password);
 
             // Create a MimeMessage
 
             MimeMessage message;
 
-            EmailAddress sender(email_login, email_login);
+            EmailAddress sender(smtpInfo.login, smtpInfo.password);
             message.setSender(&sender);
 
             EmailAddress to(email, email);
@@ -392,9 +376,6 @@ void SendWidget::on_pushButton_startSend_clicked()
             MimeHtml html;
             html.setHtml(emailBodyText.toLocal8Bit());
             message.addPart(&html);
-
-
-
 
             for(auto filename: attachments_list + personalAttrachments_byPaticipant_list[participant_index])
             {
@@ -447,6 +428,47 @@ void SendWidget::on_pushButton_startSend_clicked()
 
     delete progressDialog;
     qInfo("All emails sended successfuly");
+}
+
+void SendWidget::on_pushButton_startSend_clicked()
+{
+    bool isNotOK = false;
+
+    QString subject = get_subject(isNotOK);
+    if(isNotOK) return;
+
+    ///////////////////////////////////////////////////////////////////////
+    QStringList attachments_list = get_attachments(isNotOK);
+    if(isNotOK) return;
+
+    ///////////////////////////////////////////////////////////////////////
+    QFileInfoList personalAttachments_list = get_personalAtteachments(isNotOK);
+    if(isNotOK) return;
+
+    ///////////////////////////////////////////////////////////////////////
+    SmtpInfo smtpInfo = get_smtpInfo(isNotOK);
+
+    ///////////////////////////////////////////////////////////////////////
+    QString emailBodyText = get_emailBodyText(isNotOK);
+    if(isNotOK) return;
+
+    ///////////////////////////////////////////////////////////////////////
+    QVector<Participant> participant_email_list = get_participant_email_list(isNotOK);
+    if(isNotOK) return;
+
+    ///////////////////////////////////////////////////////////////////////
+    QStringList participant_text_splited = get_participant_text_splited(isNotOK);
+    if(isNotOK) return;
+
+    ///////////////////////////////////////////////////////////////////////
+    QVector<Participant> participant_list;
+    QVector<QStringList> personalAttrachments_byPaticipant_list;
+    QVector<QStringList> emails_byPaticipant_list;
+    std::tie(participant_list, personalAttrachments_byPaticipant_list, emails_byPaticipant_list) = get_mergedInfoToSend(participant_text_splited, personalAttachments_list, participant_email_list, isNotOK);
+    if(isNotOK) return;
+
+    ///////////////////////////////////////////////////////////////////////
+    send_emails(participant_list, emails_byPaticipant_list,attachments_list, personalAttrachments_byPaticipant_list, smtpInfo, subject, emailBodyText);
 }
 
 /*
