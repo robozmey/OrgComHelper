@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Form</string>
+   <string>Переименование</string>
   </property>
   <widget class="QGroupBox" name="groupBox_2">
    <property name="geometry">
@@ -58,7 +58,7 @@
      </rect>
     </property>
     <property name="text">
-     <string>Д</string>
+     <string>-&gt;</string>
     </property>
    </widget>
    <widget class="QLineEdit" name="lineEdit_personalAttachments">
@@ -94,7 +94,7 @@
      </rect>
     </property>
     <property name="text">
-     <string>Д</string>
+     <string>-&gt;</string>
     </property>
    </widget>
    <widget class="QLineEdit" name="lineEdit_emailBase">
@@ -130,7 +130,7 @@
      </rect>
     </property>
     <property name="text">
-     <string>Д</string>
+     <string>-&gt;</string>
     </property>
    </widget>
    <widget class="QLineEdit" name="lineEdit_attachments">
@@ -166,7 +166,7 @@
      </rect>
     </property>
     <property name="text">
-     <string>Д</string>
+     <string>-&gt;</string>
     </property>
    </widget>
    <widget class="QLineEdit" name="lineEdit_emailBody">
@@ -238,7 +238,7 @@
      </rect>
     </property>
     <property name="text">
-     <string>Д</string>
+     <string>-&gt;</string>
     </property>
    </widget>
    <widget class="QLineEdit" name="lineEdit_emailKey">

@@ -28,7 +28,6 @@ HEADERS += \
 
 FORMS += \
     mainwindow.ui \
-    renamemain.ui \
     renamewidget.ui \
     sendwidget.ui
 
@@ -49,3 +48,5 @@ else:unix: LIBS += -L$$SMTP_LIBRARY_LOCATION -lSMTPEmail
 
 INCLUDEPATH += $$SMTP_LIBRARY_LOCATION
 DEPENDPATH += $$SMTP_LIBRARY_LOCATION
+
+RC_ICONS = myappico.ico

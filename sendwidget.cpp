@@ -79,22 +79,29 @@ void SendWidget::mailSent(QString status)
 
 
 
-void SendWidget::on_pushButton_startSend_clicked()
+
+
+QString SendWidget::get_subject(bool &isNotOK)
 {
     QString subject = ui->lineEdit_subject->text();
     if(subject == "")
     {
         showErrorMessage("Отсутствует тема письма!");
-        return;
+        isNotOK = true;
+        return QString();
     }
+    return subject;
+}
 
-    ///////////////////////////////////////////////////////////////////////
+QStringList SendWidget::get_attachments(bool &isNotOK)
+{
     QString path_attachmentsDir = ui->lineEdit_attachments->text();
     QDir attachmentsDir = QDir(path_attachmentsDir);
     if(!attachmentsDir.exists())
     {
         showErrorMessage("Папка с приложениями указана неверно!");
-        return;
+        isNotOK = true;
+        return QStringList();
     }
     QFileInfoList attachments_file_list = attachmentsDir.entryInfoList(QDir::Files);
     QStringList attachments_list;
@@ -104,16 +111,180 @@ void SendWidget::on_pushButton_startSend_clicked()
     }
     qInfo("Attachments(%d) getted successfuly", attachments_list.length());
 
-    ///////////////////////////////////////////////////////////////////////
+    return attachments_list;
+}
+
+
+QFileInfoList SendWidget::get_personalAtteachments(bool &isNotOK)
+{
     QString path_personalAttachmentsDir = ui->lineEdit_personalAttachments->text();
     QDir personalAttachmentsDir = QDir(path_personalAttachmentsDir);
-    if(!attachmentsDir.exists())
+    if(!personalAttachmentsDir.exists())
     {
         showErrorMessage("Папка с работами участников указана неверно!");
-        return;
+        return QFileInfoList();
     }
     QFileInfoList personalAttachments_list = personalAttachmentsDir.entryInfoList(QDir::Files);
     qInfo("Personal attachments(%d) getted successfuly", personalAttachments_list.length());
+
+    return personalAttachments_list;
+}
+
+
+QString SendWidget::get_emailBodyText(bool &isNotOK)
+{
+    QString path_emailBody = ui->lineEdit_emailBody->text();
+    QFile file_emailBody(path_emailBody);
+    if(!file_emailBody.exists())
+    {
+        showErrorMessage("Файл с телом письма указан неверно!");
+        isNotOK = true;
+        return QString();
+    }
+    QString emailBodyText = "";
+    if(file_emailBody.open(QIODevice::ReadOnly))
+    {
+        QTextStream stream_emailBody(&file_emailBody);
+
+        emailBodyText = stream_emailBody.readAll();
+    }
+    else
+    {
+        showErrorMessage("Ошибка при чтении файла с телом письма!");
+        isNotOK = true;
+        return QString();
+    }
+    file_emailBody.close();
+    qInfo("Email body getted successfuly");
+    return emailBodyText;
+}
+
+
+QVector<Participant> SendWidget::get_participant_email_list(bool &isNotOK)
+{
+    QString path_emailBase = ui->lineEdit_emailBase->text();
+    if(!QFile(path_emailBase).exists())
+    {
+        showErrorMessage("Файл с адресами почт участников указан неверно!");
+        return  QVector<Participant>();
+    }
+    QVector<Participant> participant_email_list;
+    QFile file_emailBase(path_emailBase);
+    QString tmp = "";
+    if(file_emailBase.open(QIODevice::ReadOnly))
+    {
+        QTextStream stream_emailBase(&file_emailBase);
+        while(!stream_emailBase.atEnd())
+        {
+            QString line = remove_yo(QString::fromUtf8(stream_emailBase.readLine().toLocal8Bit()));
+            tmp += line + "\n";
+            QStringList splited_line = line.split(QRegExp("[ \t]"),QString::SkipEmptyParts);
+            if(splited_line.length() < 3)
+            {
+                continue;
+            }
+            participant_email_list.append(Participant(splited_line[1], splited_line[2], "0", splited_line[0]));
+
+        }
+    }
+    else
+    {
+        showErrorMessage("Ошибка при чтении файла с адресами почт участников!");
+        return  QVector<Participant>();
+    }
+    file_emailBase.close();
+    qInfo("Participant emails(%d) getted successfuly", participant_email_list.length());
+    return participant_email_list;
+}
+
+QStringList SendWidget::get_participant_text_splited(bool &isNotOK)
+{
+    QString participants_text = remove_yo(ui->textEdit_participants->toPlainText());
+    if(participants_text == "")
+    {
+        showErrorMessage("Отсутствует участники олимпиады!");
+        return QStringList();
+    }
+    QStringList participant_text_splited = participants_text.split(QRegExp("[\n]"),QString::SkipEmptyParts);
+    qInfo("Participant names(%d) getted successfuly", participant_text_splited.length());
+
+    return participant_text_splited;
+}
+
+std::tuple<QVector<Participant>, QVector<QStringList>, QVector<QStringList>> SendWidget::get_mergedInfoToSend(QStringList participant_text_splited, QFileInfoList personalAttachments_list, QVector<Participant> participant_email_list, bool &isNotOK)
+{
+    QVector<Participant> participant_list;
+    QVector<QStringList> personalAttrachments_byPaticipant_list;
+    QVector<QStringList> emails_byPaticipant_list;
+    for(int index_of_participant = 0; index_of_participant < participant_text_splited.length(); index_of_participant++)
+    {
+        QString participant_fio = participant_text_splited[index_of_participant];
+
+        QStringList splited_fio = participant_fio.split(QRegExp("[ \t]"),QString::SkipEmptyParts);
+
+        if(splited_fio.length() < 2)
+        {
+            showErrorMessage("Неправильно указано имя одного или нескольких участников!");
+            isNotOK = true;
+            return std::make_tuple(participant_list, personalAttrachments_byPaticipant_list, emails_byPaticipant_list);
+        }
+
+        QStringList personalAttachments_forPaticipant;
+
+        for(auto file: personalAttachments_list)
+        {
+            if(QRegExp("^" + splited_fio.at(0) + "_" + splited_fio.at(1) + "*").indexIn(file.fileName()) != -1)
+            {
+                personalAttachments_forPaticipant.append(file.absoluteFilePath());
+                qInfo("%s", file.fileName().toLocal8Bit().data());
+                qInfo(("^" + splited_fio.at(0) + "_" + splited_fio.at(1) + "*").toLocal8Bit().data());
+                qInfo("%d", QRegExp("^" + splited_fio.at(0) + "_" + splited_fio.at(1) + "*").indexIn(file.fileName()));
+            }
+        }
+
+        personalAttrachments_byPaticipant_list.append(personalAttachments_forPaticipant);
+
+        if(personalAttachments_forPaticipant.size() == 0)
+        {
+            showErrorMessage("У одного или нескольких участников нет работы в папке с работами!");
+            isNotOK = true;
+            return std::make_tuple(participant_list, personalAttrachments_byPaticipant_list, emails_byPaticipant_list);
+        }
+
+        participant_list.append(Participant(splited_fio.at(0), splited_fio.at(1)));
+
+        QSet<QString> emails_list;
+
+        for(auto participant_with_email: participant_email_list)
+        {
+
+            if(splited_fio[0] == participant_with_email.lastName && splited_fio[1] == participant_with_email.firstName)
+            {
+                emails_list.insert(participant_with_email.email);
+                qInfo("Email will send to %s", participant_with_email.email.toLocal8Bit().data());
+            }
+        }
+        emails_byPaticipant_list.append(emails_list.toList());
+    }
+    qInfo("ParticipantInfo merged successfuly");
+
+    return std::make_tuple(participant_list, personalAttrachments_byPaticipant_list, emails_byPaticipant_list);
+}
+
+void SendWidget::on_pushButton_startSend_clicked()
+{
+    bool isNotOK = false;
+
+    QString subject = get_subject(isNotOK);
+    if(isNotOK) return;
+
+    ///////////////////////////////////////////////////////////////////////
+    QStringList attachments_list = get_attachments(isNotOK);
+    if(isNotOK) return;
+
+    ///////////////////////////////////////////////////////////////////////
+    QFileInfoList personalAttachments_list = get_personalAtteachments(isNotOK);
+    if(isNotOK) return;
 
     ///////////////////////////////////////////////////////////////////////
     QString path_emailKey = ui->lineEdit_emailKey->text();
@@ -169,135 +340,29 @@ void SendWidget::on_pushButton_startSend_clicked()
     qInfo("Password: %s", email_password.toLocal8Bit().data());
 
     ///////////////////////////////////////////////////////////////////////
-    QString path_emailBody = ui->lineEdit_emailBody->text();
-    QFile file_emailBody(path_emailBody);
-    if(!file_emailBody.exists())
-    {
-        showErrorMessage("Файл с телом письма указан неверно!");
-        return;
-    }
-    QString emailBodyText = "";
-    if(file_emailBody.open(QIODevice::ReadOnly))
-    {
-        QTextStream stream_emailBody(&file_emailBody);
-
-        emailBodyText = stream_emailBody.readAll();
-    }
-    else
-    {
-        showErrorMessage("Ошибка при чтении файла с телом письма!");
-        return;
-    }
-    file_emailBody.close();
-    qInfo("Email body getted successfuly");
+    QString emailBodyText = get_emailBodyText(isNotOK);
 
     ///////////////////////////////////////////////////////////////////////
-    QString path_emailBase = ui->lineEdit_emailBase->text();
-    if(!QFile(path_emailBody).exists())
-    {
-        showErrorMessage("Файл с адресами почт участников указан неверно!");
-        return;
-    }
-    QVector<Participant> participant_email_list;
-    QFile file_emailBase(path_emailBase);
-    QString tmp = "";
-    if(file_emailBase.open(QIODevice::ReadOnly))
-    {
-        QTextStream stream_emailBase(&file_emailBase);
-        while(!stream_emailBase.atEnd())
-        {
-            QString line = remove_yo(QString::fromUtf8(stream_emailBase.readLine().toLocal8Bit()));
-            tmp += line + "\n";
-            QStringList splited_line = line.split(QRegExp("[ \t]"),QString::SkipEmptyParts);
-            if(splited_line.length() < 3)
-            {
-                continue;
-            }
-            participant_email_list.append(Participant(splited_line[1], splited_line[2], "0", splited_line[0]));
-
-        }
-    }
-    else
-    {
-        showErrorMessage("Ошибка при чтении файла с адресами почт участников!");
-        return;
-    }
-    file_emailBase.close();
-    qInfo("Participant emails(%d) getted successfuly", participant_email_list.length());
+    QVector<Participant> participant_email_list = get_participant_email_list(isNotOK);
 
     ///////////////////////////////////////////////////////////////////////
-    QString participants_text = remove_yo(ui->textEdit_participants->toPlainText());
-    if(participants_text == "")
-    {
-        showErrorMessage("Отсутствует участники олимпиады!");
-        return;
-    }
-    QStringList participant_text_splited = participants_text.split(QRegExp("[\n]"),QString::SkipEmptyParts);
-    qInfo("Participant names(%d) getted successfuly", participant_text_splited.length());
+    QStringList participant_text_splited = get_participant_text_splited(isNotOK);
 
     ///////////////////////////////////////////////////////////////////////
     QVector<Participant> participant_list;
     QVector<QStringList> personalAttrachments_byPaticipant_list;
     QVector<QStringList> emails_byPaticipant_list;
-    for(int index_of_participant = 0; index_of_participant < participant_text_splited.length(); index_of_participant++)
-    {
-        QString participant_fio = participant_text_splited[index_of_participant];
-
-        QStringList splited_fio = participant_fio.split(QRegExp("[ \t]"),QString::SkipEmptyParts);
-
-        if(splited_fio.length() < 2)
-        {
-            showErrorMessage("Неправильно указано имя одного или нескольких участников!");
-            return;
-        }
-
-        QStringList personalAttachments_forPaticipant;
-
-        for(auto file: personalAttachments_list)
-        {
-            if(QRegExp("^" + splited_fio.at(0) + "_" + splited_fio.at(1) + "*").indexIn(file.fileName()) != -1)
-            {
-                personalAttachments_forPaticipant.append(file.absoluteFilePath());
-                qInfo("%s", file.fileName().toLocal8Bit().data());
-                qInfo(("^" + splited_fio.at(0) + "_" + splited_fio.at(1) + "*").toLocal8Bit().data());
-                qInfo("%d", QRegExp("^" + splited_fio.at(0) + "_" + splited_fio.at(1) + "*").indexIn(file.fileName()));
-            }
-        }
-
-        personalAttrachments_byPaticipant_list.append(personalAttachments_forPaticipant);
-
-        if(personalAttachments_forPaticipant.size() == 0)
-        {
-            showErrorMessage("У одного или нескольких участников нет работы в папке с работами!");
-            return;
-        }
-
-        participant_list.append(Participant(splited_fio.at(0), splited_fio.at(1)));
-
-        QSet<QString> emails_list;
-
-        for(auto participant_with_email: participant_email_list)
-        {
-
-            if(splited_fio[0] == participant_with_email.lastName && splited_fio[1] == participant_with_email.firstName)
-            {
-                emails_list.insert(participant_with_email.email);
-                qInfo("Email will send to %s", participant_with_email.email.toLocal8Bit().data());
-            }
-        }
-        emails_byPaticipant_list.append(emails_list.toList());
-    }
-    qInfo("ParticipantInfo merged successfuly");
+    std::tie(participant_list, personalAttrachments_byPaticipant_list, emails_byPaticipant_list) = get_mergedInfoToSend(participant_text_splited, personalAttachments_list, participant_email_list, isNotOK);
 
     ///////////////////////////////////////////////////////////////////////
-    QProgressDialog progressDialog(this);
-    progressDialog.setLabelText("Отправка");
-    progressDialog.setMinimum(0);
-    progressDialog.setMaximum(participant_list.size());
-    progressDialog.show();
+    QProgressDialog* progressDialog = new QProgressDialog(this);
+    progressDialog->setLabelText("Отправка");
+    progressDialog->setMinimum(0);
+    progressDialog->setMaximum(participant_list.size());
+    progressDialog->show();
     for(int participant_index = 0; participant_index < participant_list.size(); participant_index++)
     {
-        progressDialog.setValue(participant_index);
+        progressDialog->setValue(participant_index);
 
         qInfo("Sending to %s", participant_list[participant_index].lastName.toLocal8Bit().data());
 
@@ -378,7 +443,9 @@ void SendWidget::on_pushButton_startSend_clicked()
         }
 
     }
-    progressDialog.setValue(participant_list.length());
+    progressDialog->setValue(participant_list.length());
+
+    delete progressDialog;
     qInfo("All emails sended successfuly");
 }
 
