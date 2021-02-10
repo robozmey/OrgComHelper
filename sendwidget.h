@@ -16,7 +16,7 @@
 
 //#include "smtp.h"
 #include "util.h"
-#include "src/SmtpMime"
+#include "SmtpMime"
 
 namespace Ui {
     class SendWidget;

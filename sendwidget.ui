@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Переименование</string>
+   <string>Отправка</string>
   </property>
   <widget class="QGroupBox" name="groupBox_2">
    <property name="geometry">
@@ -226,7 +226,7 @@
     </rect>
    </property>
    <property name="title">
-    <string>Логин и пароль от электорнной почты</string>
+    <string>Ключ от электорнной почты</string>
    </property>
    <widget class="QPushButton" name="pushButton_emailKey">
     <property name="geometry">

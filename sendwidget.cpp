@@ -43,7 +43,7 @@ void SendWidget::on_pushButton_personalAttachments_clicked()
 void SendWidget::on_pushButton_emailBody_clicked()
 {
     QString path = QFileDialog::getOpenFileName(this,
-            tr("Выберите протокол"), "",
+            tr("Выберите тело письма"), "",
             tr("Веб-страница (*.htm *.html)"));
 
     ui->lineEdit_emailBody->setText(path);
@@ -188,6 +188,7 @@ QFileInfoList SendWidget::get_personalAtteachments(bool &isNotOK)
     if(!personalAttachmentsDir.exists())
     {
         showErrorMessage("Папка с работами участников указана неверно!");
+        isNotOK = true;
         return QFileInfoList();
     }
     QFileInfoList personalAttachments_list = personalAttachmentsDir.entryInfoList(QDir::Files);
@@ -232,6 +233,7 @@ QVector<Participant> SendWidget::get_participant_email_list(bool &isNotOK)
     if(!QFile(path_emailBase).exists())
     {
         showErrorMessage("Файл с адресами почт участников указан неверно!");
+        isNotOK = true;
         return  QVector<Participant>();
     }
     QVector<Participant> participant_email_list;
@@ -256,6 +258,7 @@ QVector<Participant> SendWidget::get_participant_email_list(bool &isNotOK)
     else
     {
         showErrorMessage("Ошибка при чтении файла с адресами почт участников!");
+        isNotOK = true;
         return  QVector<Participant>();
     }
     file_emailBase.close();
@@ -269,6 +272,7 @@ QStringList SendWidget::get_participant_text_splited(bool &isNotOK)
     if(participants_text == "")
     {
         showErrorMessage("Отсутствует участники олимпиады!");
+        isNotOK = true;
         return QStringList();
     }
     QStringList participant_text_splited = participants_text.split(QRegExp("[\n]"),QString::SkipEmptyParts);
@@ -339,32 +343,30 @@ std::tuple<QVector<Participant>, QVector<QStringList>, QVector<QStringList>> Sen
 
 void SendWidget::send_emails(QVector<Participant> participant_list, QVector<QStringList> emails_byPaticipant_list, QStringList attachments_list, QVector<QStringList> personalAttrachments_byPaticipant_list, SmtpInfo smtpInfo, QString subject, QString emailBodyText)
 {
-    QProgressDialog* progressDialog = new QProgressDialog(this);
-    progressDialog->setLabelText("Отправка");
-    progressDialog->setMinimum(0);
-    progressDialog->setMaximum(participant_list.size());
-    progressDialog->show();
+    QProgressDialog progressDialog(this);
+    progressDialog.setLabelText("Отправка");
+    progressDialog.setMinimum(0);
+    progressDialog.setMaximum(participant_list.size());
+    progressDialog.show();
+
     for(int participant_index = 0; participant_index < participant_list.size(); participant_index++)
     {
-        progressDialog->setValue(participant_index);
+        progressDialog.setValue(participant_index);
 
-        qInfo("Sending to %s", participant_list[participant_index].lastName.toLocal8Bit().data());
+        qInfo() << "Sending emails for "<< participant_index << participant_list[participant_index].lastName.toLatin1() << participant_list[participant_index].firstName.toLatin1();
 
         for(auto email: emails_byPaticipant_list[participant_index])
         {
 
             qInfo("Sending email to %s", email.toLocal8Bit().data());
 
-            SmtpClient smtp(smtpInfo.server, smtpInfo.port, SmtpClient::SslConnection);
 
-            smtp.setUser(smtpInfo.login);
-            smtp.setPassword(smtpInfo.password);
 
             // Create a MimeMessage
 
             MimeMessage message;
 
-            EmailAddress sender(smtpInfo.login, smtpInfo.password);
+            EmailAddress sender(smtpInfo.login, smtpInfo.login);
             message.setSender(&sender);
 
             EmailAddress to(email, email);
@@ -385,19 +387,26 @@ void SendWidget::send_emails(QVector<Participant> participant_list, QVector<QStr
             // Now we create the attachment object
 
 
+            SmtpClient smtp(smtpInfo.server, smtpInfo.port, SmtpClient::SslConnection);
+
+            smtp.setUser(smtpInfo.login);
+            smtp.setPassword(smtpInfo.password);
+
             if (!smtp.connectToHost()) {
                 showErrorMessage("Failed to connect to host!");
+                progressDialog.deleteLater();
                 return;
             }
 
-            qInfo("Succesfully connected to smtp server");
+            //qInfo("Succesfully connected to smtp server");
 
             if (!smtp.login()) {
                 showErrorMessage("Failed to login!");
+                progressDialog.deleteLater();
                 return;
             }
 
-            qInfo("Succesfully logged in to smtp server");
+            //qInfo("Succesfully logged in to smtp server");
 
             if (!smtp.sendMail(message)) {
                // showErrorMessage("Failed to send mail!");
@@ -405,11 +414,11 @@ void SendWidget::send_emails(QVector<Participant> participant_list, QVector<QStr
               // QThread::msleep(100);
             }
 
-            qInfo("Succesfully sended email");
+            //qInfo("Succesfully sended email");
+
+
 
             smtp.quit();
-
-
 
             /*
             Smtp* smtp = new Smtp(email_login, email_password, email_server, port_server);
@@ -424,9 +433,12 @@ void SendWidget::send_emails(QVector<Participant> participant_list, QVector<QStr
         }
 
     }
-    progressDialog->setValue(participant_list.length());
 
-    delete progressDialog;
+
+    progressDialog.setValue(participant_list.length());
+
+    progressDialog.deleteLater();
+
     qInfo("All emails sended successfuly");
 }
 
